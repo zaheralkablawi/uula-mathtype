@@ -36,6 +36,12 @@ h1 .sub{color:#9aa3b0;font-size:13px;line-height:15px;font-weight:500}
 .chk input{accent-color:var(--accent);margin:0}
 .go{display:flex;align-items:center;justify-content:center;gap:8px;height:38px;border:0;border-radius:9px;background:var(--accent);color:#fff;font-size:14px;font-weight:600;cursor:pointer}
 .go:hover{filter:brightness(1.07)}.go:disabled{opacity:.55;cursor:default}
+.go.alt{background:var(--panel);color:var(--accent);border:1.5px solid var(--accent)}
+.go.alt:hover{background:var(--accent-soft);filter:none}
+.go.alt .spin{border-color:rgb(31 113 222 / .3);border-top-color:var(--accent)}
+.go .num{font-size:15px;font-weight:600;line-height:1}
+.sep{height:1px;background:var(--line);margin:2px 0}
+.note{font-size:11.8px;color:var(--muted);text-align:center;margin-top:-4px}
 .go svg{width:18px;height:18px}
 .status{font-size:12.8px;color:var(--muted);min-height:1.2em;text-align:center}
 .status.ok{color:var(--ok)}.status.bad{color:var(--bad)}
@@ -76,7 +82,7 @@ h1 .sub{color:#9aa3b0;font-size:13px;line-height:15px;font-weight:500}
   </header>
 
   <div class="panel">
-    <div class="label">المعادلات القديمة في</div>
+    <div class="label">النطاق</div>
     <div class="seg" id="scope">
       <button type="button" data-v="sel">المحدد</button>
       <button type="button" data-v="slide" aria-pressed="true">الشريحة</button>
@@ -84,6 +90,9 @@ h1 .sub{color:#9aa3b0;font-size:13px;line-height:15px;font-weight:500}
     </div>
     <label class="chk"><input type="checkbox" id="redo"> أعد كتابة الكود للمعادلات التي فيها كود</label>
     <button type="button" class="go" id="go"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 7l-5 5 5 5M16 7l5 5-5 5M13.5 5l-3 14"/></svg><span id="goTxt">إضافة الكود</span></button>
+    <div class="sep"></div>
+    <button type="button" class="go alt" id="digits"><span class="num">١٢٣</span><span id="digTxt">تحويل الأرقام إلى هندية</span></button>
+    <div class="note">نص الشرائح فقط، بدون رقم الصفحة والقالب والخلفية.</div>
   </div>
 
   <div class="status" id="status" role="status"></div>
@@ -101,7 +110,7 @@ h1 .sub{color:#9aa3b0;font-size:13px;line-height:15px;font-weight:500}
 <script>
 (function(){
 'use strict';
-const VER = '1.0';
+const VER = '1.1';
 const TAG = 'UULA_AEQ'; // the same hidden tag UULA Arabic Math reads with «تعديل»
 const $ = id => document.getElementById(id);
 const say = (t, cls) => { const s = $('status'); s.textContent = t || ''; s.className = 'status' + (cls ? ' ' + cls : ''); };
@@ -126,6 +135,7 @@ $('aboutBtn').addEventListener('click', () => {
   $('modalT').textContent = 'حول الأداة';
   $('modalB').innerHTML = '<p>تقرأ معادلات MathType القديمة في الشرائح، وتحفظ داخل كل واحدة كودها بصيغة <b>UULA Arabic Math</b>.</p>' +
     '<p>بعدها تحدد المعادلة القديمة وتضغط <b>تعديل</b> في UULA Arabic Math فيظهر كودها، ثم <b>إدراج</b> فتحل المعادلة الجديدة مكانها.</p>' +
+    '<p><b>تحويل الأرقام إلى هندية</b>: يحوّل 0–9 إلى ٠–٩ في نص الشرائح فقط، ويترك رقم الصفحة والقالب والخلفية، والكلمات التي فيها حروف إنجليزية مثل fx-991.</p>' +
     '<p>⚠ تعني أن في المعادلة جزءًا لم يُعرف، وهو بين ⟦ ⟧ في الكود: راجعه قبل الإدراج.</p>' +
     '<p class="foot" dir="ltr">Developed by <b>Zaher Alkablawi</b> · Version ' + VER + '<br>© 2026 UULA. All rights reserved.</p>';
   $('modal').hidden = false;
@@ -244,6 +254,111 @@ async function run(){
   }
 }
 $('go').addEventListener('click', run);
+
+// ---------- English digits -> Hindi (Arabic-Indic) digits, in the slide's own text only ----------
+const HINDI = '٠١٢٣٤٥٦٧٨٩';
+const TEXT_TYPES = new Set(['GeometricShape','TextBox','Placeholder','Callout','Freeform']);
+const SKIP_PH = new Set(['SlideNumber','Footer','Date']);
+// same-length runs of digits to replace; digits inside a word with Latin letters (fx-991, MATH2) stay as they are
+function digitRuns(t){
+  const runs = []; const re = /\S+/g; let m;
+  while ((m = re.exec(t))){
+    if (/[A-Za-z]/.test(m[0])) continue;
+    const d = /[0-9]+/g; let k;
+    while ((k = d.exec(m[0]))) runs.push({ start: m.index + k.index, len: k[0].length, rep: k[0].replace(/[0-9]/g, c => HINDI[+c]) });
+  }
+  return runs;
+}
+let slideH = null; // slide height in points (from the file), to recognise a page number at the bottom
+async function getSlideH(){
+  if (slideH) return slideH;
+  try { const z = MTC.openZip(await fileBytes()); const p = await z.text('ppt/presentation.xml');
+    const m = /<p:sldSz\b[^>]*\bcy="(\d+)"/.exec(p); if (m) slideH = +m[1] / 12700; } catch (e){}
+  return slideH;
+}
+async function runDigits(){
+  if (!window.PowerPoint || !Office.context.requirements.isSetSupported('PowerPointApi', '1.5'))
+    return say('تعمل الأداة في PowerPoint فقط (نسخة حديثة).', 'bad');
+  const btn = $('digits'), lab = $('digTxt'), num = btn.querySelector('.num');
+  const sp = document.createElement('span'); sp.className = 'spin';
+  btn.disabled = true; num.replaceWith(sp); lab.textContent = 'جارٍ التحويل…'; say('');
+  let nDig = 0, nShapes = 0, nTables = 0;
+  try {
+    const H = await getSlideH();
+    await PowerPoint.run(async ctx => {
+      const P = ctx.presentation;
+      const all = P.slides; all.load('items/id');
+      const selS = P.getSelectedSlides(); selS.load('items/id');
+      const selSh = P.getSelectedShapes(); selSh.load('items/id');
+      await ctx.sync();
+      let slides = scope === 'all' ? all.items : selS.items;
+      if (!slides.length) throw new Error('اختر شريحة أولًا.');
+      const pick = scope === 'sel' ? new Set(selSh.items.map(x => x.id)) : null;
+      if (pick && !pick.size) throw new Error('حدد الأشكال أولًا.');
+      if (pick) slides = slides.slice(0, 1);
+      // every shape of the chosen slides, groups opened
+      const leaves = [];
+      const PROPS = 'items/id,items/type,items/name,items/top,items/height';
+      let level = slides.map(sl => { const c = sl.shapes; c.load(PROPS); return { c, inPick: !pick }; });
+      await ctx.sync();
+      for (let depth = 0; level.length && depth < 6; depth++){
+        const next = [];
+        for (const { c, inPick } of level) for (const sh of c.items){
+          const chosen = inPick || (pick && pick.has(sh.id));
+          if (sh.type === 'Group'){ try { const g = sh.group.shapes; g.load(PROPS); next.push({ c: g, inPick: chosen }); } catch (e){} continue; }
+          if (chosen) leaves.push(sh);
+        }
+        try { await ctx.sync(); } catch (e){ break; }
+        level = next;
+      }
+      // page number marks and footer placeholders
+      const cand = leaves.filter(sh => TEXT_TYPES.has(sh.type) || sh.type === 'Table');
+      for (const sh of cand){
+        sh._num = sh.tags.getItemOrNullObject('MYNUMBER'); sh._num.load('value');
+        if (sh.type === 'Placeholder'){ try { sh.placeholderFormat.load('type'); } catch (e){} }
+      }
+      await ctx.sync();
+      const text = cand.filter(sh => sh.type !== 'Table' && sh._num.isNullObject &&
+        !(sh.type === 'Placeholder' && sh.placeholderFormat && SKIP_PH.has(sh.placeholderFormat.type)));
+      // read the text (one by one if a shape has no text box)
+      for (const sh of text){ sh._tr = sh.textFrame.textRange; sh._tr.load('text'); }
+      try { await ctx.sync(); }
+      catch (e){ for (const sh of text){ try { sh._tr = sh.textFrame.textRange; sh._tr.load('text'); await ctx.sync(); } catch (e2){ sh._tr = null; } } }
+      for (const sh of text){
+        if (!sh._tr) continue; let t; try { t = sh._tr.text; } catch (e){ continue; }
+        if (!t || !/[0-9]/.test(t)) continue;
+        // a lone number at the very bottom of the slide is the page number
+        if (H && sh.top > H * 0.88 && /^[\s0-9\-—–|/.]*$/.test(t)) continue;
+        const runs = digitRuns(t); if (!runs.length) continue;
+        for (const r of runs){ sh._tr.getSubstring(r.start, r.len).text = r.rep; nDig += r.len; } // same length: formatting stays
+        nShapes++;
+      }
+      await ctx.sync();
+      // tables: cell by cell
+      const tables = cand.filter(sh => sh.type === 'Table' && sh._num.isNullObject);
+      for (const sh of tables){
+        try {
+          const tb = sh.getTable(); tb.load('rowCount,columnCount'); await ctx.sync();
+          const cells = [];
+          for (let r = 0; r < tb.rowCount; r++) for (let c = 0; c < tb.columnCount; c++){ const cl = tb.getCellOrNullObject(r, c); cl.load('text'); cells.push(cl); }
+          await ctx.sync(); let hit = false;
+          for (const cl of cells){ if (cl.isNullObject || !cl.text || !/[0-9]/.test(cl.text)) continue;
+            const runs = digitRuns(cl.text); if (!runs.length) continue;
+            let t = cl.text; for (const r of runs) t = t.slice(0, r.start) + r.rep + t.slice(r.start + r.len);
+            cl.text = t; nDig += runs.reduce((a, r) => a + r.len, 0); hit = true; }
+          await ctx.sync(); if (hit) nTables++;
+        } catch (e){}
+      }
+    });
+    const where = nShapes + nTables;
+    say(nDig ? 'حُوّلت الأرقام: ' + nDig + ' رقم في ' + where + ' من الأشكال. (⌘Z للتراجع)' : 'لا توجد أرقام إنجليزية في نص ' + (scope === 'all' ? 'الملف' : scope === 'sel' ? 'المحدد' : 'الشريحة') + '.', nDig ? 'ok' : '');
+  } catch (e){
+    say(e && e.message && /[؀-ۿ]/.test(e.message) ? e.message : 'تعذّر التحويل: ' + (e && e.message || e), 'bad');
+  } finally {
+    btn.disabled = false; sp.replaceWith(num); lab.textContent = 'تحويل الأرقام إلى هندية';
+  }
+}
+$('digits').addEventListener('click', runDigits);
 
 function draw(){
   const n = k => results.filter(r => r.state === k).length;
