@@ -452,7 +452,7 @@ if (typeof module !== 'undefined') module.exports = MTC;
 <script>
 (function(){
 'use strict';
-const VER = '1.2';
+const VER = '1.3';
 const TAG = 'UULA_AEQ'; // the same hidden tag UULA Arabic Math reads with «تعديل»
 const $ = id => document.getElementById(id);
 const say = (t, cls) => { const s = $('status'); s.textContent = t || ''; s.className = 'status' + (cls ? ' ' + cls : ''); };
@@ -478,7 +478,7 @@ $('aboutBtn').addEventListener('click', () => {
   $('modalB').innerHTML = '<p>تقرأ معادلات MathType القديمة في الشرائح، وتحفظ داخل كل واحدة كودها بصيغة <b>UULA Arabic Math</b>.</p>' +
     '<p>بعدها تحدد المعادلة القديمة وتضغط <b>تعديل</b> في UULA Arabic Math فيظهر كودها، ثم <b>إدراج</b> فتحل المعادلة الجديدة مكانها.</p>' +
     '<p><b>تحويل الأرقام إلى هندية</b>: يحوّل 0–9 إلى ٠–٩ في نص الشرائح فقط، ويترك رقم الصفحة والقالب والخلفية، والكلمات التي فيها حروف إنجليزية مثل fx-991.</p>' +
-    '<p><b>إصلاح الأقواس المعكوسة</b>: في النص العربي يقلب الأقواس المكتوبة بالعكس مثل «)نص(» لتصبح صحيحة، ويترك الأقواس الصحيحة كما هي.</p>' +
+    '<p><b>إصلاح الأقواس المعكوسة</b>: في النص العربي يقلب الأقواس المكتوبة بالعكس مثل «)نص(»، ويضع بجانب كل قوس علامة اتجاه مخفية تمنع باوربوينت من قلبه. الأقواس حول الإنجليزي مثل f(x) تبقى كما هي.</p>' +
     '<p><b>استبدل الكود إذا كان موجودًا من قبل</b>: بدونه تترك الأداة المعادلات التي أخذت كودها سابقًا.</p>' +
     '<p>⚠ تعني أن في المعادلة جزءًا لم يُعرف، وهو بين ⟦ ⟧ في الكود: راجعه قبل الإدراج.</p>' +
     '<p class="foot" dir="ltr">Developed by <b>Zaher Alkablawi</b> · Version ' + VER + '<br>© 2026 UULA. All rights reserved.</p>';
@@ -613,23 +613,40 @@ function digitRuns(t){
   }
   return runs;
 }
-// brackets written the wrong way round in Arabic text: «)نص(» -> «(نص)»; pairs that are already right stay
+// brackets in Arabic text: 1) written the wrong way round «)نص(» -> «(نص)»
+// 2) written right but shown reversed (next to ∥, a digit, an overlined letter…): an invisible right-to-left mark (RLM) on each side fixes the direction
+// brackets around English (f(x)) are left alone
 const PAIRS = [['(', ')'], ['[', ']'], ['{', '}']];
+const RLM = '‏', LAT = /[A-Za-z]/;
 function parenRuns(t){
-  const runs = [];
-  for (const para of t.split(/(\r\n|\r|\n|\v)/).reduce((a, x) => { a.push({ s: x, at: a.length ? a[a.length - 1].at + a[a.length - 1].s.length : 0 }); return a; }, [])){
-    if (!/[؀-ۿ]/.test(para.s)) continue;
+  const edits = new Map(); // position -> final bracket
+  let at = 0;
+  for (const para of t.split(/(\r\n|\r|\n|\v)/)){
+    const base = at; at += para.length;
+    if (!/[؀-ۿ]/.test(para)) continue;
     for (const [O, C] of PAIRS){
-      const st = [];
-      for (let i = 0; i < para.s.length; i++){
-        const ch = para.s[i]; if (ch !== O && ch !== C) continue;
+      const st = [], pairs = [];
+      for (let i = 0; i < para.length; i++){
+        const ch = para[i]; if (ch !== O && ch !== C) continue;
         const top = st[st.length - 1];
-        if (ch === C){ if (top && top.k === 'n') st.pop(); else st.push({ i, k: 'r' }); }
-        else { if (top && top.k === 'r'){ st.pop(); runs.push({ start: para.at + top.i, len: 1, rep: O }, { start: para.at + i, len: 1, rep: C }); } else st.push({ i, k: 'n' }); }
+        if (ch === C){ if (top && top.k === 'n'){ st.pop(); pairs.push([top.i, i, false]); } else st.push({ i, k: 'r' }); }
+        else { if (top && top.k === 'r'){ st.pop(); pairs.push([top.i, i, true]); } else st.push({ i, k: 'n' }); }
       }
+      for (const [i, j, rev] of pairs){
+        const latin = LAT.test(para.slice(i + 1, j)) || LAT.test(para[i - 1] || '');
+        if (rev){ edits.set(base + i, { ch: O, mark: !latin }); edits.set(base + j, { ch: C, mark: !latin }); }
+        else if (!latin){ edits.set(base + i, { ch: O, mark: true }); edits.set(base + j, { ch: C, mark: true }); }
+      }
+      for (const { i } of st){ const nb = (para[i - 1] || '') + (para[i + 1] || ''); if (!LAT.test(nb)) edits.set(base + i, { ch: para[i], mark: true }); }
     }
   }
-  return runs.sort((a, b) => a.start - b.start);
+  const runs = [];
+  for (const [pos, e] of edits){
+    const L = e.mark && t[pos - 1] !== RLM, R = e.mark && t[pos + 1] !== RLM;
+    if (e.ch === t[pos] && !L && !R) continue; // already right
+    runs.push({ start: pos, len: 1, rep: (L ? RLM : '') + e.ch + (R ? RLM : '') });
+  }
+  return runs.sort((x, y) => x.start - y.start);
 }
 let slideH = null; // slide height in points (from the file), to recognise a page number at the bottom
 async function getSlideH(){
@@ -694,7 +711,7 @@ async function runFix(mode){
         // a lone number at the very bottom of the slide is the page number
         if (D && H && sh.top > H * 0.88 && /^[\s0-9\-—–|/.]*$/.test(t)) continue;
         const runs = find(t); if (!runs.length) continue;
-        for (const r of runs){ sh._tr.getSubstring(r.start, r.len).text = r.rep; nDig += r.len; } // same length: formatting stays
+        for (const r of runs.slice().reverse()){ sh._tr.getSubstring(r.start, r.len).text = r.rep; nDig += D ? r.len : 1; } // from the end; each character keeps its formatting
         nShapes++;
       }
       await ctx.sync();
@@ -708,8 +725,8 @@ async function runFix(mode){
           await ctx.sync(); let hit = false;
           for (const cl of cells){ if (cl.isNullObject || !cl.text || !has(cl.text)) continue;
             const runs = find(cl.text); if (!runs.length) continue;
-            let t = cl.text; for (const r of runs) t = t.slice(0, r.start) + r.rep + t.slice(r.start + r.len);
-            cl.text = t; nDig += runs.reduce((a, r) => a + r.len, 0); hit = true; }
+            let t = cl.text; for (const r of runs.slice().reverse()) t = t.slice(0, r.start) + r.rep + t.slice(r.start + r.len);
+            cl.text = t; nDig += D ? runs.reduce((a, r) => a + r.len, 0) : runs.length; hit = true; }
           await ctx.sync(); if (hit) nTables++;
         } catch (e){}
       }
@@ -717,7 +734,7 @@ async function runFix(mode){
     const where = nShapes + nTables;
     const W = scope === 'all' ? 'الملف' : scope === 'sel' ? 'المحدد' : 'الشريحة';
     if (D) say(nDig ? 'حُوّلت الأرقام: ' + nDig + ' رقم في ' + where + ' من الأشكال. (⌘Z للتراجع)' : 'لا توجد أرقام إنجليزية في نص ' + W + '.', nDig ? 'ok' : '');
-    else say(nDig ? 'أُصلح ' + (nDig / 2) + ' من الأقواس في ' + where + ' من الأشكال. (⌘Z للتراجع)' : 'لا توجد أقواس معكوسة في ' + W + '.', nDig ? 'ok' : '');
+    else say(nDig ? 'أُصلح ' + nDig + ' من الأقواس في ' + where + ' من الأشكال. (⌘Z للتراجع)' : 'لا توجد أقواس معكوسة في ' + W + '.', nDig ? 'ok' : '');
   } catch (e){
     say(e && e.message && /[؀-ۿ]/.test(e.message) ? e.message : 'تعذّر التحويل: ' + (e && e.message || e), 'bad');
   } finally {
