@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<OfficeApp xmlns="http://schemas.microsoft.com/office/appforoffice/1.1"
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xmlns:bt="http://schemas.microsoft.com/office/officeappbasictypes/1.0"
+  xmlns:ov="http://schemas.microsoft.com/office/taskpaneappversionoverrides"
+  xsi:type="TaskPaneApp">
+  <Id>9ae4fd07-78b7-4bf8-bf16-32922219f493</Id>
+  <Version>1.0.0.0</Version>
+  <ProviderName>Zaher Alkablawi</ProviderName>
+  <DefaultLocale>ar-SA</DefaultLocale>
+  <DisplayName DefaultValue="UULA MathType Code"/>
+  <Description DefaultValue="يحفظ داخل معادلات MathType القديمة كودها بصيغة UULA Arabic Math، لتعيد كتابتها بزر «تعديل»."/>
+  <IconUrl DefaultValue="https://zaheralkablawi.github.io/uula-mathtype/icon-32.png"/>
+  <HighResolutionIconUrl DefaultValue="https://zaheralkablawi.github.io/uula-mathtype/icon-64.png"/>
+  <SupportUrl DefaultValue="https://github.com/zaheralkablawi/uula-mathtype"/>
+  <AppDomains>
+    <AppDomain>https://zaheralkablawi.github.io</AppDomain>
+  </AppDomains>
+  <Hosts>
+    <Host Name="Presentation"/>
+  </Hosts>
+  <DefaultSettings>
+    <SourceLocation DefaultValue="https://zaheralkablawi.github.io/uula-mathtype/taskpane.html"/>
+  </DefaultSettings>
+  <Permissions>ReadWriteDocument</Permissions>
+  <VersionOverrides xmlns="http://schemas.microsoft.com/office/taskpaneappversionoverrides" xsi:type="VersionOverridesV1_0">
+    <Hosts>
+      <Host xsi:type="Presentation">
+        <DesktopFormFactor>
+          <ExtensionPoint xsi:type="PrimaryCommandSurface">
+            <OfficeTab id="TabHome">
+              <Group id="UULAMT.Group">
+                <Label resid="MT.Group"/>
+                <Icon>
+                  <bt:Image size="16" resid="MT.Icon16"/>
+                  <bt:Image size="32" resid="MT.Icon32"/>
+                  <bt:Image size="80" resid="MT.Icon80"/>
+                </Icon>
+                <Control xsi:type="Button" id="UULAMT.Open">
+                  <Label resid="MT.Button"/>
+                  <Supertip>
+                    <Title resid="MT.Button"/>
+                    <Description resid="MT.Tip"/>
+                  </Supertip>
+                  <Icon>
+                    <bt:Image size="16" resid="MT.Icon16"/>
+                    <bt:Image size="32" resid="MT.Icon32"/>
+                    <bt:Image size="80" resid="MT.Icon80"/>
+                  </Icon>
+                  <Action xsi:type="ShowTaskpane">
+                    <TaskpaneId>UULAMathTypePane</TaskpaneId>
+                    <SourceLocation resid="MT.Url"/>
+                  </Action>
+                </Control>
+              </Group>
+            </OfficeTab>
+          </ExtensionPoint>
+        </DesktopFormFactor>
+      </Host>
+    </Hosts>
+    <Resources>
+      <bt:Images>
+        <bt:Image id="MT.Icon16" DefaultValue="https://zaheralkablawi.github.io/uula-mathtype/icon-16.png"/>
+        <bt:Image id="MT.Icon32" DefaultValue="https://zaheralkablawi.github.io/uula-mathtype/icon-32.png"/>
+        <bt:Image id="MT.Icon80" DefaultValue="https://zaheralkablawi.github.io/uula-mathtype/icon-80.png"/>
+      </bt:Images>
+      <bt:Urls>
+        <bt:Url id="MT.Url" DefaultValue="https://zaheralkablawi.github.io/uula-mathtype/taskpane.html"/>
+      </bt:Urls>
+      <bt:ShortStrings>
+        <bt:String id="MT.Group" DefaultValue="UULA"/>
+        <bt:String id="MT.Button" DefaultValue="MathType Code"/>
+      </bt:ShortStrings>
+      <bt:LongStrings>
+        <bt:String id="MT.Tip" DefaultValue="إضافة كود UULA Arabic Math إلى معادلات MathType القديمة"/>
+      </bt:LongStrings>
+    </Resources>
+  </VersionOverrides>
+</OfficeApp>

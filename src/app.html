@@ -1,0 +1,289 @@
+<!doctype html>
+<html lang="ar" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta http-equiv="Cache-Control" content="no-cache">
+<title>UULA MathType Code</title>
+<script src="https://appsforoffice.microsoft.com/lib/1/hosted/office.js"></script>
+<style>
+:root{--bg:#f3f5f8;--panel:#fff;--ink:#18212e;--muted:#5d6878;--line:#d9dfe7;--accent:#1f71de;--accent-soft:#e7effc;--ok:#1f9d55;--warn:#e8590c;--bad:#d62f2f;
+  --f:"UULA Sans",-apple-system,"Segoe UI",Tahoma,sans-serif}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--f);font-size:14px;line-height:1.6}
+[hidden]{display:none!important}
+button{font-family:inherit}
+.wrap{padding:10px 14px 16px;display:grid;gap:10px}
+header{display:flex;align-items:center;gap:8px;direction:rtl;padding-inline:13px}
+h1{margin:0;display:flex;align-items:center;gap:7px;font-weight:500;direction:ltr;margin-left:auto}
+h1 .bt{display:flex;flex-direction:column;justify-content:center;align-items:flex-end;text-align:right;height:30px}
+h1 .root{color:#2072e0;font-size:14px;line-height:15px;font-weight:600;letter-spacing:.03em}
+h1 .sub{color:#9aa3b0;font-size:13px;line-height:15px;font-weight:500}
+.ib{display:inline-grid;place-items:center;width:30px;height:28px;border:1px solid var(--line);background:var(--panel);color:var(--accent);border-radius:7px;cursor:pointer;padding:0}
+.ib:hover,.ib[aria-expanded="true"]{border-color:var(--accent);background:var(--accent-soft)}
+.ib.updbtn{position:relative;color:#e8590c;border-color:#e8590c}
+.updbtn .dot{position:absolute;top:-3px;inset-inline-end:-3px;width:8px;height:8px;border-radius:50%;background:#e8590c;animation:updp 1.6s ease-in-out infinite}
+@keyframes updp{50%{transform:scale(1.5);opacity:.5}}
+.appmenu{position:relative}
+.menu{position:absolute;inset-inline-end:0;top:calc(100% + 4px);z-index:40;min-width:190px;background:var(--panel);border:1px solid var(--line);border-radius:10px;box-shadow:0 10px 28px rgb(0 0 0 / .18);padding:5px}
+.menu button{display:flex;align-items:center;gap:8px;width:100%;font-size:12.5px;text-align:start;background:none;border:0;border-radius:7px;padding:6px 10px;color:var(--ink);cursor:pointer}
+.menu button:hover{background:var(--accent-soft)}
+.menu svg{width:15px;height:15px;flex:none}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px;display:grid;gap:10px}
+.label{font-size:12px;font-weight:600;color:var(--muted)}
+.seg{display:grid;grid-template-columns:repeat(3,1fr);border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.seg button{font-size:12.5px;height:26px;border:0;border-inline-start:1px solid var(--line);background:var(--panel);color:var(--ink);cursor:pointer;padding:0 4px}
+.seg button:first-child{border-inline-start:0}
+.seg button[aria-pressed="true"]{background:var(--accent-soft);color:var(--accent);font-weight:600}
+.chk{display:flex;align-items:center;gap:7px;font-size:13px;cursor:pointer}
+.chk input{accent-color:var(--accent);margin:0}
+.go{display:flex;align-items:center;justify-content:center;gap:8px;height:38px;border:0;border-radius:9px;background:var(--accent);color:#fff;font-size:14px;font-weight:600;cursor:pointer}
+.go:hover{filter:brightness(1.07)}.go:disabled{opacity:.55;cursor:default}
+.go svg{width:18px;height:18px}
+.status{font-size:12.8px;color:var(--muted);min-height:1.2em;text-align:center}
+.status.ok{color:var(--ok)}.status.bad{color:var(--bad)}
+.sum{display:flex;gap:6px;flex-wrap:wrap;justify-content:center}
+.pill{font-size:11.8px;border-radius:20px;padding:1px 9px;background:#eef1f5;color:var(--muted)}
+.pill.ok{background:#e4f5ea;color:var(--ok)}.pill.warn{background:#fdeee4;color:var(--warn)}.pill.bad{background:#fbe5e5;color:var(--bad)}
+.list{display:grid;gap:6px}
+.row{display:grid;grid-template-columns:auto 1fr auto;gap:8px;align-items:start;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:7px 9px;cursor:pointer}
+.row:hover{border-color:var(--accent)}
+.row .ic{width:18px;height:18px;margin-top:2px}
+.row .code{font-size:13px;white-space:pre-wrap;word-break:break-word;direction:rtl;unicode-bidi:plaintext}
+.row .meta{font-size:11px;color:var(--muted)}
+.row .note{font-size:11.5px;color:var(--warn)}
+.row.ok .ic{color:var(--ok)}.row.warn .ic{color:var(--warn)}.row.bad .ic{color:var(--bad)}.row.skip .ic{color:#9aa3b0}
+.mini{font-size:11.5px;border:1px solid var(--line);background:var(--panel);color:var(--accent);border-radius:6px;padding:1px 8px;cursor:pointer;white-space:nowrap}
+.mini.del{color:var(--bad)}
+.hint{font-size:11.8px;color:var(--muted);text-align:center;line-height:1.7}
+.hint b{color:var(--ink);font-weight:600}
+.modal{position:fixed;inset:0;z-index:60;background:rgb(0 0 0 / .35);display:grid;place-items:center;padding:16px}
+.mbox{background:var(--panel);border-radius:12px;max-width:420px;width:100%;max-height:80vh;overflow:auto;padding:14px 16px;box-shadow:0 16px 40px rgb(0 0 0 / .3)}
+.mbox h3{margin:0 0 8px;font-size:1rem}.mbox p{margin:6px 0;font-size:13px}
+.mbox .foot{text-align:center;color:var(--muted);font-size:.8rem;margin-top:10px;border-top:1px solid var(--line);padding-top:8px}
+.credit{text-align:center;font-size:11.5px;color:var(--muted);padding:6px 0 0}
+.spin{width:16px;height:16px;border:2px solid rgb(255 255 255 / .45);border-top-color:#fff;border-radius:50%;animation:sp .8s linear infinite}
+@keyframes sp{to{transform:rotate(360deg)}}
+</style></head><body>
+<div class="wrap">
+  <header>
+    <h1><img src="logo.png" alt="" width="30" height="30" style="display:block;flex:none"><span class="bt"><span class="root">UULA</span><span class="sub">MathType Code</span></span></h1>
+    <button type="button" class="ib updbtn" id="updBtn" hidden title="تحديث جديد"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 11a8 8 0 0 0-14.9-3.5L4 9"/><path d="M4 4v5h5"/><path d="M4 13a8 8 0 0 0 14.9 3.5L20 15"/><path d="M20 20v-5h-5"/></svg><span class="dot"></span></button>
+    <div class="appmenu">
+      <button type="button" class="ib" id="menuBtn" aria-expanded="false" title="القائمة"><svg viewBox="0 0 20 20" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M4 6h12M4 10h12M4 14h12"/></svg></button>
+      <div class="menu" id="appMenu" hidden>
+        <button type="button" id="chkUpd"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 11a8 8 0 0 0-14.9-3.5L4 9"/><path d="M4 4v5h5"/><path d="M4 13a8 8 0 0 0 14.9 3.5L20 15"/><path d="M20 20v-5h-5"/></svg>التحقق من التحديثات</button>
+        <button type="button" id="aboutBtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7.5h.01"/></svg>حول الأداة</button>
+      </div>
+    </div>
+  </header>
+
+  <div class="panel">
+    <div class="label">المعادلات القديمة في</div>
+    <div class="seg" id="scope">
+      <button type="button" data-v="sel">المحدد</button>
+      <button type="button" data-v="slide" aria-pressed="true">الشريحة</button>
+      <button type="button" data-v="all">كل الملف</button>
+    </div>
+    <label class="chk"><input type="checkbox" id="redo"> أعد كتابة الكود للمعادلات التي فيها كود</label>
+    <button type="button" class="go" id="go"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 7l-5 5 5 5M16 7l5 5-5 5M13.5 5l-3 14"/></svg><span id="goTxt">إضافة الكود</span></button>
+  </div>
+
+  <div class="status" id="status" role="status"></div>
+  <div class="sum" id="sum"></div>
+  <div class="list" id="list"></div>
+  <div class="hint" id="hint">بعد إضافة الكود: حدد المعادلة القديمة، ثم اضغط <b>تعديل</b> في <b>UULA Arabic Math</b>، ثم <b>إدراج</b>.</div>
+
+  <div class="modal" id="modal" hidden><div class="mbox" role="dialog" aria-modal="true"><h3 id="modalT"></h3><div id="modalB"></div><button type="button" class="mini" id="modalX" style="margin-top:10px">إغلاق</button></div></div>
+  <footer class="credit" dir="ltr">By Zaher Alkablawi <span id="appVer"></span></footer>
+</div>
+
+<script>
+/*CORE*/
+</script>
+<script>
+(function(){
+'use strict';
+const VER = '1.0';
+const TAG = 'UULA_AEQ'; // the same hidden tag UULA Arabic Math reads with «تعديل»
+const $ = id => document.getElementById(id);
+const say = (t, cls) => { const s = $('status'); s.textContent = t || ''; s.className = 'status' + (cls ? ' ' + cls : ''); };
+const ICON = {
+  ok: '<path d="M5 12.5l4.5 4.5L19 7.5"/>',
+  warn: '<path d="M12 4l9 16H3z"/><path d="M12 10v4M12 17h.01"/>',
+  bad: '<circle cx="12" cy="12" r="9"/><path d="M9 9l6 6M15 9l-6 6"/>',
+  skip: '<circle cx="12" cy="12" r="9"/><path d="M8 12h8"/>'
+};
+const svg = k => '<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' + ICON[k] + '</svg>';
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+// Mazeri symbols (private-use characters) are hard to read in the list: show them as ◆
+const show = s => s.replace(/[-]/g, '◆');
+
+// ---- menu, about ----
+const menu = open => { $('appMenu').hidden = !open; $('menuBtn').setAttribute('aria-expanded', String(!!open)); };
+$('menuBtn').addEventListener('click', e => { e.stopPropagation(); menu($('appMenu').hidden); });
+document.addEventListener('click', e => { if (!e.target.closest('.appmenu')) menu(false); });
+$('modalX').addEventListener('click', () => { $('modal').hidden = true; });
+$('aboutBtn').addEventListener('click', () => {
+  menu(false);
+  $('modalT').textContent = 'حول الأداة';
+  $('modalB').innerHTML = '<p>تقرأ معادلات MathType القديمة في الشرائح، وتحفظ داخل كل واحدة كودها بصيغة <b>UULA Arabic Math</b>.</p>' +
+    '<p>بعدها تحدد المعادلة القديمة وتضغط <b>تعديل</b> في UULA Arabic Math فيظهر كودها، ثم <b>إدراج</b> فتحل المعادلة الجديدة مكانها.</p>' +
+    '<p>⚠ تعني أن في المعادلة جزءًا لم يُعرف، وهو بين ⟦ ⟧ في الكود: راجعه قبل الإدراج.</p>' +
+    '<p class="foot" dir="ltr">Developed by <b>Zaher Alkablawi</b> · Version ' + VER + '<br>© 2026 UULA. All rights reserved.</p>';
+  $('modal').hidden = false;
+});
+document.addEventListener('keydown', e => { if (e.key === 'Escape'){ menu(false); $('modal').hidden = true; } });
+
+// ---- scope ----
+let scope = 'slide';
+$('scope').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return;
+  scope = b.dataset.v; [...$('scope').children].forEach(x => x.setAttribute('aria-pressed', String(x === b))); });
+
+// ---- updates (same method as UULA Arabic Math) ----
+(function(){
+  const head = () => fetch('app.html?chk=' + Date.now(), { method: 'HEAD', cache: 'no-store' })
+    .then(r => r.ok ? (r.headers.get('etag') || r.headers.get('last-modified')) : null).catch(() => null);
+  let base = null, last = 0;
+  async function check(manual){
+    last = Date.now(); const t = await head();
+    if (!base){ base = t; if (manual) say(t ? 'لديك أحدث نسخة.' : 'لا يوجد اتصال.'); return; }
+    if (t && t !== base){ $('updBtn').hidden = false; if (manual) say('يوجد تحديث جديد: اضغط زر التحديث.'); }
+    else if (manual) say(t ? 'لديك أحدث نسخة.' : 'لا يوجد اتصال.');
+  }
+  head().then(t => { base = t; });
+  setInterval(() => check(false), 60 * 60 * 1000);
+  const soon = () => { if (Date.now() - last > 60 * 60 * 1000) check(false); };
+  window.addEventListener('focus', soon);
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) soon(); });
+  $('updBtn').addEventListener('click', () => location.replace('app.html?v=' + Date.now()));
+  $('chkUpd').addEventListener('click', () => { menu(false); check(true); });
+})();
+
+// ---- the presentation as bytes ----
+function fileBytes(){
+  return new Promise((res, rej) => {
+    Office.context.document.getFileAsync(Office.FileType.Compressed, { sliceSize: 4194304 }, r => {
+      if (r.status !== Office.AsyncResultStatus.Succeeded) return rej(new Error(r.error && r.error.message || 'getFile'));
+      const f = r.value, n = f.sliceCount, parts = []; let got = 0;
+      const done = () => { f.closeAsync(); const len = parts.reduce((a, p) => a + p.length, 0), out = new Uint8Array(len); let o = 0; parts.forEach(p => { out.set(p, o); o += p.length; }); res(out); };
+      for (let i = 0; i < n; i++) f.getSliceAsync(i, s => {
+        if (s.status !== Office.AsyncResultStatus.Succeeded){ f.closeAsync(); return rej(new Error('slice')); }
+        parts[i] = new Uint8Array(s.value.data); if (++got === n) done(); });
+    });
+  });
+}
+
+// a shape found in the file -> the same shape in PowerPoint (id first, then name and place)
+function match(found, shapes){
+  const near = s => Math.abs(s.left - found.left) + Math.abs(s.top - found.top) + Math.abs(s.width - found.width) + Math.abs(s.height - found.height);
+  let m = shapes.find(s => String(s.id) === String(found.id) && near(s) < 12);
+  if (!m) m = shapes.filter(s => s.name === found.name).sort((a, b) => near(a) - near(b))[0];
+  if (m && near(m) > 12) m = null;
+  if (!m){ const c = shapes.slice().sort((a, b) => near(a) - near(b))[0]; if (c && near(c) < 4) m = c; }
+  return m || null;
+}
+const metaOf = f => encodeURIComponent(JSON.stringify({ v: 1, c: f.code, color: f.color || '#000000', align: 'right', pt: f.pt || 12, weight: '400', m: true, src: 'mathtype' }));
+
+let results = [];
+async function run(){
+  if (!window.PowerPoint || !Office.context.requirements.isSetSupported('PowerPointApi', '1.5'))
+    return say('تعمل الأداة في PowerPoint فقط (نسخة حديثة).', 'bad');
+  const btn = $('go'); btn.disabled = true; $('goTxt').textContent = 'جارٍ القراءة…';
+  const ico = btn.querySelector('svg'); const sp = document.createElement('span'); sp.className = 'spin'; ico.replaceWith(sp);
+  say(''); $('list').innerHTML = ''; $('sum').innerHTML = '';
+  try {
+    // where to look
+    const where = await PowerPoint.run(async ctx => {
+      const slides = ctx.presentation.slides; slides.load('items/id');
+      const sel = ctx.presentation.getSelectedSlides(); sel.load('items/id');
+      const shp = ctx.presentation.getSelectedShapes(); shp.load('items/id');
+      await ctx.sync();
+      const ids = slides.items.map(s => s.id);
+      return { ids, cur: sel.items.map(s => ids.indexOf(s.id)).filter(i => i >= 0), shapes: shp.items.map(s => s.id) };
+    });
+    if (scope !== 'all' && !where.cur.length) throw new Error('اختر شريحة أولًا.');
+    if (scope === 'sel' && !where.shapes.length) throw new Error('حدد المعادلات القديمة أولًا.');
+    const only = scope === 'all' ? null : (scope === 'sel' ? where.cur.slice(0, 1) : where.cur);
+    const bytes = await fileBytes();
+    $('goTxt').textContent = 'جارٍ إضافة الكود…';
+    const found = await MTC.scan(bytes, only);
+    const redo = $('redo').checked;
+    results = [];
+    await PowerPoint.run(async ctx => {
+      const slides = ctx.presentation.slides; slides.load('items/id'); await ctx.sync();
+      for (const s of found){
+        if (!s.shapes.length) continue;
+        const slide = slides.items[s.slide]; if (!slide) continue;
+        const col = slide.shapes; col.load('items/id,items/name,items/left,items/top,items/width,items/height'); await ctx.sync();
+        const shapes = col.items;
+        for (const f of s.shapes){
+          const r = { slide: s.slide, slideId: slide.id, f, sh: match(f, shapes) };
+          results.push(r);
+          if (scope === 'sel' && (!r.sh || !where.shapes.includes(r.sh.id))){ r.out = true; continue; }
+          if (!r.sh){ r.state = 'bad'; r.msg = 'لم أجد الشكل في الشريحة'; continue; }
+          if (f.error){ r.state = 'bad'; r.msg = f.error; continue; }
+          if (f.empty){ r.state = 'skip'; r.msg = 'معادلة فارغة'; continue; }
+          r.tag = r.sh.tags.getItemOrNullObject(TAG); r.tag.load('value');
+        }
+        await ctx.sync();
+        for (const r of results){
+          if (!r.tag || r.done) continue;
+          r.done = true;
+          if (!r.tag.isNullObject && !redo){ r.state = 'skip'; r.msg = 'فيها كود من قبل'; continue; }
+          r.sh.tags.add(TAG, metaOf(r.f));
+          r.state = r.f.warn && r.f.warn.length ? 'warn' : 'ok';
+          if (r.state === 'warn') r.msg = 'راجع: ' + r.f.warn.join('، ');
+        }
+        await ctx.sync();
+      }
+    });
+    results = results.filter(r => !r.out);
+    draw();
+  } catch (e){
+    say(e && e.message && /[؀-ۿ]/.test(e.message) ? e.message : 'تعذّر العمل: ' + (e && e.message || e), 'bad');
+  } finally {
+    btn.disabled = false; $('goTxt').textContent = 'إضافة الكود'; sp.replaceWith(ico);
+  }
+}
+$('go').addEventListener('click', run);
+
+function draw(){
+  const n = k => results.filter(r => r.state === k).length;
+  const ok = n('ok'), warn = n('warn'), bad = n('bad'), skip = n('skip');
+  if (!results.length){ say('لا توجد معادلات MathType هنا.'); return; }
+  say(ok + warn ? 'أُضيف الكود إلى ' + (ok + warn) + ' معادلة.' : 'لم يُضف كود جديد.', ok + warn ? 'ok' : '');
+  $('sum').innerHTML = (ok ? '<span class="pill ok">✓ ' + ok + '</span>' : '') + (warn ? '<span class="pill warn">راجع ' + warn + '</span>' : '') +
+    (bad ? '<span class="pill bad">تعذّر ' + bad + '</span>' : '') + (skip ? '<span class="pill">تُركت ' + skip + '</span>' : '');
+  const L = $('list'); L.innerHTML = '';
+  results.forEach((r, i) => {
+    const d = document.createElement('div'); d.className = 'row ' + r.state; d.dataset.i = i;
+    const code = r.f.code ? show(r.f.code) : '';
+    d.innerHTML = svg(r.state) + '<div><div class="code">' + esc(code || '—') + '</div>' +
+      '<div class="meta">شريحة ' + (r.slide + 1) + (r.f.pt ? ' · ' + r.f.pt + ' pt' : '') + '</div>' +
+      (r.msg ? '<div class="note">' + esc(r.msg) + '</div>' : '') + '</div>' +
+      (r.f.empty && r.sh ? '<button type="button" class="mini del" data-del="' + i + '">حذف</button>' : '<span></span>');
+    L.appendChild(d);
+  });
+}
+// click a row: go to that equation and select it
+$('list').addEventListener('click', async e => {
+  const del = e.target.closest('[data-del]');
+  const row = e.target.closest('.row'); if (!row) return;
+  const r = results[+row.dataset.i]; if (!r || !r.sh) return;
+  if (del){ // an empty MathType object: nothing to rewrite, so it can go
+    try { await PowerPoint.run(async ctx => { ctx.presentation.slides.getItem(r.slideId).shapes.getItem(r.sh.id).delete(); await ctx.sync(); });
+      r.state = 'skip'; r.msg = 'حُذفت'; r.sh = null; draw(); } catch (err){ say('تعذّر الحذف.', 'bad'); }
+    return;
+  }
+  try { await PowerPoint.run(async ctx => {
+    const P = ctx.presentation;
+    if (P.setSelectedSlides) P.setSelectedSlides([r.slideId]);
+    await ctx.sync();
+    if (P.setSelectedShapes) P.setSelectedShapes([r.sh.id]);
+    await ctx.sync(); }); }
+  catch (err){ Office.context.document.goToByIdAsync(r.slide + 1, Office.GoToType.Index, () => {}); }
+});
+
+$('appVer').textContent = VER;
+if (window.Office && Office.onReady) Office.onReady(() => {});
+})();
+</script>
+</body></html>
