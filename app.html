@@ -444,12 +444,14 @@ async function scan(u8, onlySlides){
   return out;
 }
 
-// paragraphs that START with a PowerPoint equation (a14:m): PowerPoint does not mirror the brackets after it,
-// so there the brackets must be stored the other way round. -> [{ slide, shapes: [{ id, name, left, top, paras: [index…] }] }]
-async function mathStartParas(u8, onlySlides){
+// paragraphs that hold a PowerPoint equation (a14:m), as pieces in order: { k:'t', s:text } or { k:'m' }.
+// The add-in must only change the 't' pieces: editing inside an equation turns it into plain text.
+// -> [{ slide, shapes: [{ id, name, left, top, paras: { index: [pieces] } }] }]
+async function mathParas(u8, onlySlides){
   const zip = openZip(u8);
   const pres = await zip.text('ppt/presentation.xml'), prel = await rels(zip, 'ppt/presentation.xml');
   const ids = (pres.match(/<p:sldId\b[^>]*>/g) || []).map(s => attr(s, 'r:id'));
+  const unesc = t => t.replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&apos;/g, "'").replace(/&amp;/g, '&');
   const out = [];
   for (let si = 0; si < ids.length; si++){
     if (onlySlides && !onlySlides.includes(si)) continue;
@@ -459,22 +461,39 @@ async function mathStartParas(u8, onlySlides){
       const body = (sp.match(/<p:txBody>[\s\S]*?<\/p:txBody>/) || [''])[0];
       if (!body.includes('a14:m')) continue;
       const cnv = (sp.match(/<p:cNvPr\b[^>]*>/) || [''])[0], off = (sp.match(/<a:off\b[^>]*>/) || [''])[0];
-      const paras = [];
+      const paras = {};
       (body.match(/<a:p>[\s\S]*?<\/a:p>|<a:p\/>/g) || []).forEach((pp, k) => {
-        const inner = pp.replace(/<a:pPr\b[^>]*\/>|<a:pPr\b[\s\S]*?<\/a:pPr>/, '');
-        const m = inner.search(/<a14:m>/);
-        if (m < 0) return;
-        const before = inner.slice(0, m).match(/<a:t>([^<]*)<\/a:t>/g) || [];
-        if (before.every(t => !t.replace(/<\/?a:t>/g, '').replace(/[\s\u200F\u200E]/g, ''))) paras.push(k);
+        if (!pp.includes('a14:m')) return;
+        const pieces = [];
+        const re = /<a14:m>[\s\S]*?<\/a14:m>|<a:t>([^<]*)<\/a:t>|<a:br\b[^>]*\/>/g; let m;
+        while ((m = re.exec(pp))){
+          if (m[0].startsWith('<a14:m>')) pieces.push({ k: 'm' });
+          else if (m[0].startsWith('<a:br')) pieces.push({ k: 't', s: '\v', br: true });
+          else pieces.push({ k: 't', s: unesc(m[1]) });
+        }
+        paras[k] = pieces;
       });
-      if (paras.length) shapes.push({ id: attr(cnv, 'id'), name: attr(cnv, 'name'), left: +attr(off, 'x') / 12700, top: +attr(off, 'y') / 12700, paras });
+      if (Object.keys(paras).length) shapes.push({ id: attr(cnv, 'id'), name: attr(cnv, 'name'), left: +attr(off, 'x') / 12700, top: +attr(off, 'y') / 12700, paras });
     }
     if (shapes.length) out.push({ slide: si, shapes });
   }
   return out;
 }
+// where the plain-text pieces sit inside the paragraph text PowerPoint gives the add-in; null when unsure
+function textSpans(para, pieces){
+  const spans = []; let cur = 0;
+  for (const pc of pieces){
+    if (pc.k !== 't' || !pc.s || pc.br) continue;
+    const i = para.indexOf(pc.s, cur);
+    if (i < 0) return null;
+    spans.push([i, i + pc.s.length]); cur = i + pc.s.length;
+  }
+  return spans;
+}
+const startsWithMath = pieces => { for (const pc of pieces){ if (pc.k === 'm') return true; if (pc.s && pc.s.replace(/[\s‏‎\v]/g, '')) return false; } return false; };
 
-return { scan, openZip, cfbStream, parseMTEF, convert, mathStartParas };
+return { scan, openZip, cfbStream, parseMTEF, convert, mathParas, textSpans, startsWithMath };
+
 })();
 if (typeof module !== 'undefined') module.exports = MTC;
 
@@ -482,7 +501,7 @@ if (typeof module !== 'undefined') module.exports = MTC;
 <script>
 (function(){
 'use strict';
-const VER = '1.4';
+const VER = '1.5';
 const TAG = 'UULA_AEQ'; // the same hidden tag UULA Arabic Math reads with «تعديل»
 const $ = id => document.getElementById(id);
 const say = (t, cls) => { const s = $('status'); s.textContent = t || ''; s.className = 'status' + (cls ? ' ' + cls : ''); };
@@ -687,6 +706,22 @@ function parenRuns(t, flip){
   }
   return runs.sort((x, y) => x.start - y.start);
 }
+// is this edit wholly inside plain text (not inside an equation) of its paragraph?
+function insideText(t, r, math){
+  let at = 0, k = -1;
+  for (const part of t.split(/(\r\n|\r|\n)/)){
+    const base = at; at += part.length;
+    if (/^(\r\n|\r|\n)$/.test(part)) continue;
+    k++;
+    if (r.start >= base && r.start + r.len <= base + part.length){
+      const pieces = math[k]; if (!pieces) return true;
+      const sp = MTC.textSpans(part, pieces); if (!sp) return false;
+      const s0 = r.start - base, s1 = s0 + r.len;
+      return sp.some(([a, b]) => s0 >= a && s1 <= b);
+    }
+  }
+  return false;
+}
 let slideH = null; // slide height in points (from the file), to recognise a page number at the bottom
 async function getSlideH(){
   if (slideH) return slideH;
@@ -732,17 +767,18 @@ async function runFix(mode){
         try { await ctx.sync(); } catch (e){ break; }
         level = next;
       }
-      // brackets: paragraphs that start with a PowerPoint equation (from the file)
-      if (!D){
+      // PowerPoint equations inside the text (from the file): never edit inside them
+      {
         const idx = slides.map(sl => all.items.findIndex(x => x.id === sl.id));
-        let info = []; try { info = await MTC.mathStartParas(await fileBytes(), idx); } catch (e){}
+        let info = []; try { info = await MTC.mathParas(await fileBytes(), idx); } catch (e){ info = null; }
+        if (info === null) throw new Error('تعذّرت قراءة الملف، فلم أعدّل شيئًا حتى لا تتأثر المعادلات.');
         for (const si of info){
           const slideId = all.items[si.slide] && all.items[si.slide].id;
           for (const x of si.shapes){
             const near = sh => Math.abs(sh.left - x.left) + Math.abs(sh.top - x.top);
             const m = leaves.find(sh => sh._slide === slideId && String(sh.id) === String(x.id) && sh.name === x.name)
               || leaves.filter(sh => sh._slide === slideId && sh.name === x.name).sort((a, b) => near(a) - near(b))[0];
-            if (m) m._flip = new Set(x.paras);
+            if (m){ m._math = x.paras; m._flip = new Set(Object.keys(x.paras).filter(k => MTC.startsWithMath(x.paras[k])).map(Number)); }
           }
         }
       }
@@ -764,7 +800,9 @@ async function runFix(mode){
         if (!t || !has(t)) continue;
         // a lone number at the very bottom of the slide is the page number
         if (D && H && sh.top > H * 0.88 && /^[\s0-9\-—–|/.]*$/.test(t)) continue;
-        const runs = D ? find(t) : find(t, sh._flip); if (!runs.length) continue;
+        let runs = D ? find(t) : find(t, sh._flip);
+        if (sh._math) runs = runs.filter(r => insideText(t, r, sh._math)); // only plain text around equations
+        if (!runs.length) continue;
         for (const r of runs.slice().reverse()){ sh._tr.getSubstring(r.start, r.len).text = r.rep; nDig += D ? r.len : 1; } // from the end; each character keeps its formatting
         nShapes++;
       }

@@ -336,12 +336,14 @@ async function scan(u8, onlySlides){
   return out;
 }
 
-// paragraphs that START with a PowerPoint equation (a14:m): PowerPoint does not mirror the brackets after it,
-// so there the brackets must be stored the other way round. -> [{ slide, shapes: [{ id, name, left, top, paras: [index…] }] }]
-async function mathStartParas(u8, onlySlides){
+// paragraphs that hold a PowerPoint equation (a14:m), as pieces in order: { k:'t', s:text } or { k:'m' }.
+// The add-in must only change the 't' pieces: editing inside an equation turns it into plain text.
+// -> [{ slide, shapes: [{ id, name, left, top, paras: { index: [pieces] } }] }]
+async function mathParas(u8, onlySlides){
   const zip = openZip(u8);
   const pres = await zip.text('ppt/presentation.xml'), prel = await rels(zip, 'ppt/presentation.xml');
   const ids = (pres.match(/<p:sldId\b[^>]*>/g) || []).map(s => attr(s, 'r:id'));
+  const unesc = t => t.replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&apos;/g, "'").replace(/&amp;/g, '&');
   const out = [];
   for (let si = 0; si < ids.length; si++){
     if (onlySlides && !onlySlides.includes(si)) continue;
@@ -351,21 +353,38 @@ async function mathStartParas(u8, onlySlides){
       const body = (sp.match(/<p:txBody>[\s\S]*?<\/p:txBody>/) || [''])[0];
       if (!body.includes('a14:m')) continue;
       const cnv = (sp.match(/<p:cNvPr\b[^>]*>/) || [''])[0], off = (sp.match(/<a:off\b[^>]*>/) || [''])[0];
-      const paras = [];
+      const paras = {};
       (body.match(/<a:p>[\s\S]*?<\/a:p>|<a:p\/>/g) || []).forEach((pp, k) => {
-        const inner = pp.replace(/<a:pPr\b[^>]*\/>|<a:pPr\b[\s\S]*?<\/a:pPr>/, '');
-        const m = inner.search(/<a14:m>/);
-        if (m < 0) return;
-        const before = inner.slice(0, m).match(/<a:t>([^<]*)<\/a:t>/g) || [];
-        if (before.every(t => !t.replace(/<\/?a:t>/g, '').replace(/[\s\u200F\u200E]/g, ''))) paras.push(k);
+        if (!pp.includes('a14:m')) return;
+        const pieces = [];
+        const re = /<a14:m>[\s\S]*?<\/a14:m>|<a:t>([^<]*)<\/a:t>|<a:br\b[^>]*\/>/g; let m;
+        while ((m = re.exec(pp))){
+          if (m[0].startsWith('<a14:m>')) pieces.push({ k: 'm' });
+          else if (m[0].startsWith('<a:br')) pieces.push({ k: 't', s: '\v', br: true });
+          else pieces.push({ k: 't', s: unesc(m[1]) });
+        }
+        paras[k] = pieces;
       });
-      if (paras.length) shapes.push({ id: attr(cnv, 'id'), name: attr(cnv, 'name'), left: +attr(off, 'x') / 12700, top: +attr(off, 'y') / 12700, paras });
+      if (Object.keys(paras).length) shapes.push({ id: attr(cnv, 'id'), name: attr(cnv, 'name'), left: +attr(off, 'x') / 12700, top: +attr(off, 'y') / 12700, paras });
     }
     if (shapes.length) out.push({ slide: si, shapes });
   }
   return out;
 }
+// where the plain-text pieces sit inside the paragraph text PowerPoint gives the add-in; null when unsure
+function textSpans(para, pieces){
+  const spans = []; let cur = 0;
+  for (const pc of pieces){
+    if (pc.k !== 't' || !pc.s || pc.br) continue;
+    const i = para.indexOf(pc.s, cur);
+    if (i < 0) return null;
+    spans.push([i, i + pc.s.length]); cur = i + pc.s.length;
+  }
+  return spans;
+}
+const startsWithMath = pieces => { for (const pc of pieces){ if (pc.k === 'm') return true; if (pc.s && pc.s.replace(/[\s‏‎\v]/g, '')) return false; } return false; };
 
-return { scan, openZip, cfbStream, parseMTEF, convert, mathStartParas };
+return { scan, openZip, cfbStream, parseMTEF, convert, mathParas, textSpans, startsWithMath };
+
 })();
 if (typeof module !== 'undefined') module.exports = MTC;

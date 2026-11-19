@@ -111,7 +111,7 @@ h1 .sub{color:#9aa3b0;font-size:13px;line-height:15px;font-weight:500}
 <script>
 (function(){
 'use strict';
-const VER = '1.4';
+const VER = '1.5';
 const TAG = 'UULA_AEQ'; // the same hidden tag UULA Arabic Math reads with «تعديل»
 const $ = id => document.getElementById(id);
 const say = (t, cls) => { const s = $('status'); s.textContent = t || ''; s.className = 'status' + (cls ? ' ' + cls : ''); };
@@ -316,6 +316,22 @@ function parenRuns(t, flip){
   }
   return runs.sort((x, y) => x.start - y.start);
 }
+// is this edit wholly inside plain text (not inside an equation) of its paragraph?
+function insideText(t, r, math){
+  let at = 0, k = -1;
+  for (const part of t.split(/(\r\n|\r|\n)/)){
+    const base = at; at += part.length;
+    if (/^(\r\n|\r|\n)$/.test(part)) continue;
+    k++;
+    if (r.start >= base && r.start + r.len <= base + part.length){
+      const pieces = math[k]; if (!pieces) return true;
+      const sp = MTC.textSpans(part, pieces); if (!sp) return false;
+      const s0 = r.start - base, s1 = s0 + r.len;
+      return sp.some(([a, b]) => s0 >= a && s1 <= b);
+    }
+  }
+  return false;
+}
 let slideH = null; // slide height in points (from the file), to recognise a page number at the bottom
 async function getSlideH(){
   if (slideH) return slideH;
@@ -361,17 +377,18 @@ async function runFix(mode){
         try { await ctx.sync(); } catch (e){ break; }
         level = next;
       }
-      // brackets: paragraphs that start with a PowerPoint equation (from the file)
-      if (!D){
+      // PowerPoint equations inside the text (from the file): never edit inside them
+      {
         const idx = slides.map(sl => all.items.findIndex(x => x.id === sl.id));
-        let info = []; try { info = await MTC.mathStartParas(await fileBytes(), idx); } catch (e){}
+        let info = []; try { info = await MTC.mathParas(await fileBytes(), idx); } catch (e){ info = null; }
+        if (info === null) throw new Error('تعذّرت قراءة الملف، فلم أعدّل شيئًا حتى لا تتأثر المعادلات.');
         for (const si of info){
           const slideId = all.items[si.slide] && all.items[si.slide].id;
           for (const x of si.shapes){
             const near = sh => Math.abs(sh.left - x.left) + Math.abs(sh.top - x.top);
             const m = leaves.find(sh => sh._slide === slideId && String(sh.id) === String(x.id) && sh.name === x.name)
               || leaves.filter(sh => sh._slide === slideId && sh.name === x.name).sort((a, b) => near(a) - near(b))[0];
-            if (m) m._flip = new Set(x.paras);
+            if (m){ m._math = x.paras; m._flip = new Set(Object.keys(x.paras).filter(k => MTC.startsWithMath(x.paras[k])).map(Number)); }
           }
         }
       }
@@ -393,7 +410,9 @@ async function runFix(mode){
         if (!t || !has(t)) continue;
         // a lone number at the very bottom of the slide is the page number
         if (D && H && sh.top > H * 0.88 && /^[\s0-9\-—–|/.]*$/.test(t)) continue;
-        const runs = D ? find(t) : find(t, sh._flip); if (!runs.length) continue;
+        let runs = D ? find(t) : find(t, sh._flip);
+        if (sh._math) runs = runs.filter(r => insideText(t, r, sh._math)); // only plain text around equations
+        if (!runs.length) continue;
         for (const r of runs.slice().reverse()){ sh._tr.getSubstring(r.start, r.len).text = r.rep; nDig += D ? r.len : 1; } // from the end; each character keeps its formatting
         nShapes++;
       }
