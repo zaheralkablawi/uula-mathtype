@@ -336,6 +336,36 @@ async function scan(u8, onlySlides){
   return out;
 }
 
-return { scan, openZip, cfbStream, parseMTEF, convert };
+// paragraphs that START with a PowerPoint equation (a14:m): PowerPoint does not mirror the brackets after it,
+// so there the brackets must be stored the other way round. -> [{ slide, shapes: [{ id, name, left, top, paras: [index…] }] }]
+async function mathStartParas(u8, onlySlides){
+  const zip = openZip(u8);
+  const pres = await zip.text('ppt/presentation.xml'), prel = await rels(zip, 'ppt/presentation.xml');
+  const ids = (pres.match(/<p:sldId\b[^>]*>/g) || []).map(s => attr(s, 'r:id'));
+  const out = [];
+  for (let si = 0; si < ids.length; si++){
+    if (onlySlides && !onlySlides.includes(si)) continue;
+    const xml = await zip.text(prel[ids[si]]); if (!xml || !xml.includes('a14:m')) continue;
+    const shapes = [];
+    for (const sp of xml.split(/<p:sp>/).slice(1)){
+      const body = (sp.match(/<p:txBody>[\s\S]*?<\/p:txBody>/) || [''])[0];
+      if (!body.includes('a14:m')) continue;
+      const cnv = (sp.match(/<p:cNvPr\b[^>]*>/) || [''])[0], off = (sp.match(/<a:off\b[^>]*>/) || [''])[0];
+      const paras = [];
+      (body.match(/<a:p>[\s\S]*?<\/a:p>|<a:p\/>/g) || []).forEach((pp, k) => {
+        const inner = pp.replace(/<a:pPr\b[^>]*\/>|<a:pPr\b[\s\S]*?<\/a:pPr>/, '');
+        const m = inner.search(/<a14:m>/);
+        if (m < 0) return;
+        const before = inner.slice(0, m).match(/<a:t>([^<]*)<\/a:t>/g) || [];
+        if (before.every(t => !t.replace(/<\/?a:t>/g, '').replace(/[\s\u200F\u200E]/g, ''))) paras.push(k);
+      });
+      if (paras.length) shapes.push({ id: attr(cnv, 'id'), name: attr(cnv, 'name'), left: +attr(off, 'x') / 12700, top: +attr(off, 'y') / 12700, paras });
+    }
+    if (shapes.length) out.push({ slide: si, shapes });
+  }
+  return out;
+}
+
+return { scan, openZip, cfbStream, parseMTEF, convert, mathStartParas };
 })();
 if (typeof module !== 'undefined') module.exports = MTC;

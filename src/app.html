@@ -111,7 +111,7 @@ h1 .sub{color:#9aa3b0;font-size:13px;line-height:15px;font-weight:500}
 <script>
 (function(){
 'use strict';
-const VER = '1.3';
+const VER = '1.4';
 const TAG = 'UULA_AEQ'; // the same hidden tag UULA Arabic Math reads with «تعديل»
 const $ = id => document.getElementById(id);
 const say = (t, cls) => { const s = $('status'); s.textContent = t || ''; s.className = 'status' + (cls ? ' ' + cls : ''); };
@@ -277,12 +277,15 @@ function digitRuns(t){
 // brackets around English (f(x)) are left alone
 const PAIRS = [['(', ')'], ['[', ']'], ['{', '}']];
 const RLM = '‏', LAT = /[A-Za-z]/;
-function parenRuns(t){
-  const edits = new Map(); // position -> final bracket
-  let at = 0;
-  for (const para of t.split(/(\r\n|\r|\n|\v)/)){
+function parenRuns(t, flip){
+  const edits = new Map(); // position -> { ch, mark, strip }
+  let at = 0, k = -1;
+  for (const para of t.split(/(\r\n|\r|\n)/)){
     const base = at; at += para.length;
+    if (/^(\r\n|\r|\n)$/.test(para)) continue;
+    k++;
     if (!/[؀-ۿ]/.test(para)) continue;
+    const inv = flip && flip.has(k); // paragraph starts with an equation: store brackets reversed, no marks
     for (const [O, C] of PAIRS){
       const st = [], pairs = [];
       for (let i = 0; i < para.length; i++){
@@ -293,14 +296,20 @@ function parenRuns(t){
       }
       for (const [i, j, rev] of pairs){
         const latin = LAT.test(para.slice(i + 1, j)) || LAT.test(para[i - 1] || '');
+        if (inv){ if (!latin){ edits.set(base + i, { ch: C, strip: true }); edits.set(base + j, { ch: O, strip: true }); } continue; }
         if (rev){ edits.set(base + i, { ch: O, mark: !latin }); edits.set(base + j, { ch: C, mark: !latin }); }
         else if (!latin){ edits.set(base + i, { ch: O, mark: true }); edits.set(base + j, { ch: C, mark: true }); }
       }
-      for (const { i } of st){ const nb = (para[i - 1] || '') + (para[i + 1] || ''); if (!LAT.test(nb)) edits.set(base + i, { ch: para[i], mark: true }); }
+      if (!inv) for (const { i } of st){ const nb = (para[i - 1] || '') + (para[i + 1] || ''); if (!LAT.test(nb)) edits.set(base + i, { ch: para[i], mark: true }); }
     }
   }
   const runs = [];
   for (const [pos, e] of edits){
+    if (e.strip){ // reversed bracket, and take away marks around it
+      const l = t[pos - 1] === RLM ? 1 : 0, r = t[pos + 1] === RLM ? 1 : 0;
+      if (e.ch === t[pos] && !l && !r) continue;
+      runs.push({ start: pos - l, len: 1 + l + r, rep: e.ch }); continue;
+    }
     const L = e.mark && t[pos - 1] !== RLM, R = e.mark && t[pos + 1] !== RLM;
     if (e.ch === t[pos] && !L && !R) continue; // already right
     runs.push({ start: pos, len: 1, rep: (L ? RLM : '') + e.ch + (R ? RLM : '') });
@@ -338,18 +347,33 @@ async function runFix(mode){
       if (pick) slides = slides.slice(0, 1);
       // every shape of the chosen slides, groups opened
       const leaves = [];
-      const PROPS = 'items/id,items/type,items/name,items/top,items/height';
-      let level = slides.map(sl => { const c = sl.shapes; c.load(PROPS); return { c, inPick: !pick }; });
+      const PROPS = 'items/id,items/type,items/name,items/top,items/height,items/left,items/width';
+      let level = slides.map(sl => { const c = sl.shapes; c.load(PROPS); return { c, inPick: !pick, slide: sl.id }; });
       await ctx.sync();
       for (let depth = 0; level.length && depth < 6; depth++){
         const next = [];
-        for (const { c, inPick } of level) for (const sh of c.items){
+        for (const { c, inPick, slide } of level) for (const sh of c.items){
+          sh._slide = slide;
           const chosen = inPick || (pick && pick.has(sh.id));
-          if (sh.type === 'Group'){ try { const g = sh.group.shapes; g.load(PROPS); next.push({ c: g, inPick: chosen }); } catch (e){} continue; }
+          if (sh.type === 'Group'){ try { const g = sh.group.shapes; g.load(PROPS); next.push({ c: g, inPick: chosen, slide }); } catch (e){} continue; }
           if (chosen) leaves.push(sh);
         }
         try { await ctx.sync(); } catch (e){ break; }
         level = next;
+      }
+      // brackets: paragraphs that start with a PowerPoint equation (from the file)
+      if (!D){
+        const idx = slides.map(sl => all.items.findIndex(x => x.id === sl.id));
+        let info = []; try { info = await MTC.mathStartParas(await fileBytes(), idx); } catch (e){}
+        for (const si of info){
+          const slideId = all.items[si.slide] && all.items[si.slide].id;
+          for (const x of si.shapes){
+            const near = sh => Math.abs(sh.left - x.left) + Math.abs(sh.top - x.top);
+            const m = leaves.find(sh => sh._slide === slideId && String(sh.id) === String(x.id) && sh.name === x.name)
+              || leaves.filter(sh => sh._slide === slideId && sh.name === x.name).sort((a, b) => near(a) - near(b))[0];
+            if (m) m._flip = new Set(x.paras);
+          }
+        }
       }
       // page number marks and footer placeholders
       const cand = leaves.filter(sh => TEXT_TYPES.has(sh.type) || sh.type === 'Table');
@@ -369,7 +393,7 @@ async function runFix(mode){
         if (!t || !has(t)) continue;
         // a lone number at the very bottom of the slide is the page number
         if (D && H && sh.top > H * 0.88 && /^[\s0-9\-—–|/.]*$/.test(t)) continue;
-        const runs = find(t); if (!runs.length) continue;
+        const runs = D ? find(t) : find(t, sh._flip); if (!runs.length) continue;
         for (const r of runs.slice().reverse()){ sh._tr.getSubstring(r.start, r.len).text = r.rep; nDig += D ? r.len : 1; } // from the end; each character keeps its formatting
         nShapes++;
       }
