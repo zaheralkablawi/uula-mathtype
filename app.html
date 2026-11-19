@@ -88,10 +88,11 @@ h1 .sub{color:#9aa3b0;font-size:13px;line-height:15px;font-weight:500}
       <button type="button" data-v="slide" aria-pressed="true">الشريحة</button>
       <button type="button" data-v="all">كل الملف</button>
     </div>
-    <label class="chk"><input type="checkbox" id="redo"> أعد كتابة الكود للمعادلات التي فيها كود</label>
+    <label class="chk"><input type="checkbox" id="redo"> استبدل الكود إذا كان موجودًا من قبل</label>
     <button type="button" class="go" id="go"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 7l-5 5 5 5M16 7l5 5-5 5M13.5 5l-3 14"/></svg><span id="goTxt">إضافة الكود</span></button>
     <div class="sep"></div>
     <button type="button" class="go alt" id="digits"><span class="num">١٢٣</span><span id="digTxt">تحويل الأرقام إلى هندية</span></button>
+    <button type="button" class="go alt" id="parens"><span class="num">( )</span><span id="parTxt">إصلاح الأقواس المعكوسة</span></button>
     <div class="note">نص الشرائح فقط، بدون رقم الصفحة والقالب والخلفية.</div>
   </div>
 
@@ -451,7 +452,7 @@ if (typeof module !== 'undefined') module.exports = MTC;
 <script>
 (function(){
 'use strict';
-const VER = '1.1';
+const VER = '1.2';
 const TAG = 'UULA_AEQ'; // the same hidden tag UULA Arabic Math reads with «تعديل»
 const $ = id => document.getElementById(id);
 const say = (t, cls) => { const s = $('status'); s.textContent = t || ''; s.className = 'status' + (cls ? ' ' + cls : ''); };
@@ -477,6 +478,8 @@ $('aboutBtn').addEventListener('click', () => {
   $('modalB').innerHTML = '<p>تقرأ معادلات MathType القديمة في الشرائح، وتحفظ داخل كل واحدة كودها بصيغة <b>UULA Arabic Math</b>.</p>' +
     '<p>بعدها تحدد المعادلة القديمة وتضغط <b>تعديل</b> في UULA Arabic Math فيظهر كودها، ثم <b>إدراج</b> فتحل المعادلة الجديدة مكانها.</p>' +
     '<p><b>تحويل الأرقام إلى هندية</b>: يحوّل 0–9 إلى ٠–٩ في نص الشرائح فقط، ويترك رقم الصفحة والقالب والخلفية، والكلمات التي فيها حروف إنجليزية مثل fx-991.</p>' +
+    '<p><b>إصلاح الأقواس المعكوسة</b>: في النص العربي يقلب الأقواس المكتوبة بالعكس مثل «)نص(» لتصبح صحيحة، ويترك الأقواس الصحيحة كما هي.</p>' +
+    '<p><b>استبدل الكود إذا كان موجودًا من قبل</b>: بدونه تترك الأداة المعادلات التي أخذت كودها سابقًا.</p>' +
     '<p>⚠ تعني أن في المعادلة جزءًا لم يُعرف، وهو بين ⟦ ⟧ في الكود: راجعه قبل الإدراج.</p>' +
     '<p class="foot" dir="ltr">Developed by <b>Zaher Alkablawi</b> · Version ' + VER + '<br>© 2026 UULA. All rights reserved.</p>';
   $('modal').hidden = false;
@@ -610,6 +613,24 @@ function digitRuns(t){
   }
   return runs;
 }
+// brackets written the wrong way round in Arabic text: «)نص(» -> «(نص)»; pairs that are already right stay
+const PAIRS = [['(', ')'], ['[', ']'], ['{', '}']];
+function parenRuns(t){
+  const runs = [];
+  for (const para of t.split(/(\r\n|\r|\n|\v)/).reduce((a, x) => { a.push({ s: x, at: a.length ? a[a.length - 1].at + a[a.length - 1].s.length : 0 }); return a; }, [])){
+    if (!/[؀-ۿ]/.test(para.s)) continue;
+    for (const [O, C] of PAIRS){
+      const st = [];
+      for (let i = 0; i < para.s.length; i++){
+        const ch = para.s[i]; if (ch !== O && ch !== C) continue;
+        const top = st[st.length - 1];
+        if (ch === C){ if (top && top.k === 'n') st.pop(); else st.push({ i, k: 'r' }); }
+        else { if (top && top.k === 'r'){ st.pop(); runs.push({ start: para.at + top.i, len: 1, rep: O }, { start: para.at + i, len: 1, rep: C }); } else st.push({ i, k: 'n' }); }
+      }
+    }
+  }
+  return runs.sort((a, b) => a.start - b.start);
+}
 let slideH = null; // slide height in points (from the file), to recognise a page number at the bottom
 async function getSlideH(){
   if (slideH) return slideH;
@@ -617,12 +638,14 @@ async function getSlideH(){
     const m = /<p:sldSz\b[^>]*\bcy="(\d+)"/.exec(p); if (m) slideH = +m[1] / 12700; } catch (e){}
   return slideH;
 }
-async function runDigits(){
+async function runFix(mode){
+  const D = mode === 'digits';
   if (!window.PowerPoint || !Office.context.requirements.isSetSupported('PowerPointApi', '1.5'))
     return say('تعمل الأداة في PowerPoint فقط (نسخة حديثة).', 'bad');
-  const btn = $('digits'), lab = $('digTxt'), num = btn.querySelector('.num');
+  const btn = $(D ? 'digits' : 'parens'), lab = $(D ? 'digTxt' : 'parTxt'), num = btn.querySelector('.num'), label0 = lab.textContent;
+  const find = D ? digitRuns : parenRuns, has = D ? (t => /[0-9]/.test(t)) : (t => /[()\[\]{}]/.test(t));
   const sp = document.createElement('span'); sp.className = 'spin';
-  btn.disabled = true; num.replaceWith(sp); lab.textContent = 'جارٍ التحويل…'; say('');
+  btn.disabled = true; num.replaceWith(sp); lab.textContent = D ? 'جارٍ التحويل…' : 'جارٍ الإصلاح…'; document.querySelectorAll('.go').forEach(b => b.disabled = true); say('');
   let nDig = 0, nShapes = 0, nTables = 0;
   try {
     const H = await getSlideH();
@@ -659,7 +682,7 @@ async function runDigits(){
         if (sh.type === 'Placeholder'){ try { sh.placeholderFormat.load('type'); } catch (e){} }
       }
       await ctx.sync();
-      const text = cand.filter(sh => sh.type !== 'Table' && sh._num.isNullObject &&
+      const text = cand.filter(sh => sh.type !== 'Table' && (sh._num.isNullObject || !D) &&
         !(sh.type === 'Placeholder' && sh.placeholderFormat && SKIP_PH.has(sh.placeholderFormat.type)));
       // read the text (one by one if a shape has no text box)
       for (const sh of text){ sh._tr = sh.textFrame.textRange; sh._tr.load('text'); }
@@ -667,10 +690,10 @@ async function runDigits(){
       catch (e){ for (const sh of text){ try { sh._tr = sh.textFrame.textRange; sh._tr.load('text'); await ctx.sync(); } catch (e2){ sh._tr = null; } } }
       for (const sh of text){
         if (!sh._tr) continue; let t; try { t = sh._tr.text; } catch (e){ continue; }
-        if (!t || !/[0-9]/.test(t)) continue;
+        if (!t || !has(t)) continue;
         // a lone number at the very bottom of the slide is the page number
-        if (H && sh.top > H * 0.88 && /^[\s0-9\-—–|/.]*$/.test(t)) continue;
-        const runs = digitRuns(t); if (!runs.length) continue;
+        if (D && H && sh.top > H * 0.88 && /^[\s0-9\-—–|/.]*$/.test(t)) continue;
+        const runs = find(t); if (!runs.length) continue;
         for (const r of runs){ sh._tr.getSubstring(r.start, r.len).text = r.rep; nDig += r.len; } // same length: formatting stays
         nShapes++;
       }
@@ -683,8 +706,8 @@ async function runDigits(){
           const cells = [];
           for (let r = 0; r < tb.rowCount; r++) for (let c = 0; c < tb.columnCount; c++){ const cl = tb.getCellOrNullObject(r, c); cl.load('text'); cells.push(cl); }
           await ctx.sync(); let hit = false;
-          for (const cl of cells){ if (cl.isNullObject || !cl.text || !/[0-9]/.test(cl.text)) continue;
-            const runs = digitRuns(cl.text); if (!runs.length) continue;
+          for (const cl of cells){ if (cl.isNullObject || !cl.text || !has(cl.text)) continue;
+            const runs = find(cl.text); if (!runs.length) continue;
             let t = cl.text; for (const r of runs) t = t.slice(0, r.start) + r.rep + t.slice(r.start + r.len);
             cl.text = t; nDig += runs.reduce((a, r) => a + r.len, 0); hit = true; }
           await ctx.sync(); if (hit) nTables++;
@@ -692,14 +715,17 @@ async function runDigits(){
       }
     });
     const where = nShapes + nTables;
-    say(nDig ? 'حُوّلت الأرقام: ' + nDig + ' رقم في ' + where + ' من الأشكال. (⌘Z للتراجع)' : 'لا توجد أرقام إنجليزية في نص ' + (scope === 'all' ? 'الملف' : scope === 'sel' ? 'المحدد' : 'الشريحة') + '.', nDig ? 'ok' : '');
+    const W = scope === 'all' ? 'الملف' : scope === 'sel' ? 'المحدد' : 'الشريحة';
+    if (D) say(nDig ? 'حُوّلت الأرقام: ' + nDig + ' رقم في ' + where + ' من الأشكال. (⌘Z للتراجع)' : 'لا توجد أرقام إنجليزية في نص ' + W + '.', nDig ? 'ok' : '');
+    else say(nDig ? 'أُصلح ' + (nDig / 2) + ' من الأقواس في ' + where + ' من الأشكال. (⌘Z للتراجع)' : 'لا توجد أقواس معكوسة في ' + W + '.', nDig ? 'ok' : '');
   } catch (e){
     say(e && e.message && /[؀-ۿ]/.test(e.message) ? e.message : 'تعذّر التحويل: ' + (e && e.message || e), 'bad');
   } finally {
-    btn.disabled = false; sp.replaceWith(num); lab.textContent = 'تحويل الأرقام إلى هندية';
+    document.querySelectorAll('.go').forEach(b => b.disabled = false); sp.replaceWith(num); lab.textContent = label0;
   }
 }
-$('digits').addEventListener('click', runDigits);
+$('digits').addEventListener('click', () => runFix('digits'));
+$('parens').addEventListener('click', () => runFix('parens'));
 
 function draw(){
   const n = k => results.filter(r => r.state === k).length;
