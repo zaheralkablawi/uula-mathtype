@@ -384,7 +384,80 @@ function textSpans(para, pieces){
 }
 const startsWithMath = pieces => { for (const pc of pieces){ if (pc.k === 'm') return true; if (pc.s && pc.s.replace(/[\s‏‎\v]/g, '')) return false; } return false; };
 
-return { scan, openZip, cfbStream, parseMTEF, convert, mathParas, textSpans, startsWithMath };
+// ---------- digits inside PowerPoint equations (m:t) -> Hindi, on a one-slide pptx ----------
+const CRC = (() => { const t = new Uint32Array(256); for (let n = 0; n < 256; n++){ let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xEDB88320 ^ (c >>> 1) : c >>> 1; t[n] = c >>> 0; } return t; })();
+function crc32(u8){ let c = 0xFFFFFFFF; for (let i = 0; i < u8.length; i++) c = CRC[(c ^ u8[i]) & 255] ^ (c >>> 8); return (c ^ 0xFFFFFFFF) >>> 0; }
+const HINDI_D = '٠١٢٣٤٥٦٧٨٩';
+const mathDigits = xml => xml.replace(/(<m:t(?:\s[^>]*)?>)([^<]*)(<\/m:t>)/g, (m, a, t, b) => a + t.replace(/[0-9]/g, c => HINDI_D[+c]) + b);
+const hasMathDigits = xml => /<m:t(?:\s[^>]*)?>[^<]*[0-9][^<]*<\/m:t>/.test(xml);
+// rewrite a zip: changed entries stored uncompressed, the others copied as they are
+function rezip(u8, changed){
+  const dv = new DataView(u8.buffer, u8.byteOffset, u8.byteLength);
+  let e = u8.length - 22; while (e >= 0 && dv.getUint32(e, true) !== 0x06054b50) e--;
+  const n = dv.getUint16(e + 10, true); let p = dv.getUint32(e + 16, true);
+  const ents = [], td = new TextDecoder();
+  for (let i = 0; i < n; i++){
+    const nl = dv.getUint16(p + 28, true), xl = dv.getUint16(p + 30, true), cl = dv.getUint16(p + 32, true);
+    const nameB = u8.slice(p + 46, p + 46 + nl), name = td.decode(nameB);
+    const off = dv.getUint32(p + 42, true), lnl = dv.getUint16(off + 26, true), lxl = dv.getUint16(off + 28, true);
+    const csize = dv.getUint32(p + 20, true);
+    ents.push({ nameB, name, flags: dv.getUint16(p + 8, true) & ~8, method: dv.getUint16(p + 10, true), time: dv.getUint32(p + 12, true),
+      crc: dv.getUint32(p + 16, true), csize, usize: dv.getUint32(p + 24, true), data: u8.subarray(off + 30 + lnl + lxl, off + 30 + lnl + lxl + csize) });
+    p += 46 + nl + xl + cl;
+  }
+  for (const en of ents) if (changed[en.name]){ const d = changed[en.name]; en.method = 0; en.data = d; en.csize = en.usize = d.length; en.crc = crc32(d); }
+  let size = 22; for (const en of ents) size += 30 + en.nameB.length + en.data.length + 46 + en.nameB.length;
+  const out = new Uint8Array(size), ov = new DataView(out.buffer); let w = 0; const offs = [];
+  for (const en of ents){
+    offs.push(w);
+    ov.setUint32(w, 0x04034b50, true); ov.setUint16(w + 4, 20, true); ov.setUint16(w + 6, en.flags, true); ov.setUint16(w + 8, en.method, true);
+    ov.setUint32(w + 10, en.time, true); ov.setUint32(w + 14, en.crc, true); ov.setUint32(w + 18, en.csize, true); ov.setUint32(w + 22, en.usize, true);
+    ov.setUint16(w + 26, en.nameB.length, true); ov.setUint16(w + 28, 0, true); out.set(en.nameB, w + 30); out.set(en.data, w + 30 + en.nameB.length);
+    w += 30 + en.nameB.length + en.data.length;
+  }
+  const cd = w;
+  ents.forEach((en, i) => {
+    ov.setUint32(w, 0x02014b50, true); ov.setUint16(w + 4, 20, true); ov.setUint16(w + 6, 20, true); ov.setUint16(w + 8, en.flags, true); ov.setUint16(w + 10, en.method, true);
+    ov.setUint32(w + 12, en.time, true); ov.setUint32(w + 16, en.crc, true); ov.setUint32(w + 20, en.csize, true); ov.setUint32(w + 24, en.usize, true);
+    ov.setUint16(w + 28, en.nameB.length, true); ov.setUint32(w + 42, offs[i], true); out.set(en.nameB, w + 46); w += 46 + en.nameB.length;
+  });
+  ov.setUint32(w, 0x06054b50, true); ov.setUint16(w + 8, ents.length, true); ov.setUint16(w + 10, ents.length, true);
+  ov.setUint32(w + 12, w - cd, true); ov.setUint32(w + 16, cd, true);
+  return out;
+}
+// English digits -> Hindi inside every text box that holds an equation (its text and its equations);
+// words with English letters (fx-991) keep their digits
+function fixMathShapesDigits(xml){
+  let n = 0;
+  const fixText = t => t.replace(/\S+/g, w => /[A-Za-z]/.test(w) ? w : w.replace(/[0-9]/g, c => { n++; return HINDI_D[+c]; }));
+  const out = xml.replace(/<p:sp>[\s\S]*?<\/p:sp>/g, sp => {
+    if (!sp.includes('a14:m') || sp.includes('custDataLst')) return sp;
+    return sp.replace(/(<a:t>)([^<]*)(<\/a:t>)/g, (m, a, t, b) => a + fixText(t) + b)
+             .replace(/(<m:t(?:\s[^>]*)?>)([^<]*)(<\/m:t>)/g, (m, a, t, b) => a + t.replace(/[0-9]/g, c => { n++; return HINDI_D[+c]; }) + b);
+  });
+  return { xml: out, n };
+}
+// one-slide pptx (from exportAsBase64) -> same with Hindi digits in its equation text boxes; null if nothing to change
+async function slideMathDigits(u8){
+  const zip = openZip(u8), changed = {}; let n = 0;
+  for (const name of Object.keys(zip.files)){
+    if (!/^ppt\/slides\/slide\d+\.xml$/.test(name)) continue;
+    const x = await zip.text(name); const r = fixMathShapesDigits(x); if (!r.n) continue;
+    n += r.n; changed[name] = new TextEncoder().encode(r.xml);
+  }
+  return n ? { bytes: rezip(u8, changed), n } : null;
+}
+// slides (by index) whose equation text boxes hold English digits
+async function slidesWithMathDigits(u8){
+  const zip = openZip(u8);
+  const pres = await zip.text('ppt/presentation.xml'), prel = await rels(zip, 'ppt/presentation.xml');
+  const ids = (pres.match(/<p:sldId\b[^>]*>/g) || []).map(s => attr(s, 'r:id'));
+  const out = [];
+  for (let i = 0; i < ids.length; i++){ const x = await zip.text(prel[ids[i]]); if (x && x.includes('a14:m') && fixMathShapesDigits(x).n) out.push(i); }
+  return out;
+}
+
+return { scan, openZip, cfbStream, parseMTEF, convert, mathParas, textSpans, startsWithMath, slideMathDigits, slidesWithMathDigits, rezip, crc32, mathDigits, fixMathShapesDigits };
 
 })();
 if (typeof module !== 'undefined') module.exports = MTC;
